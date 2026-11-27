@@ -15,11 +15,19 @@ jobs:
         run: test -c /dev/kvm
       - name: Grant hardware virtualization access in disposable runner
         run: sudo chmod a+rw /dev/kvm && test -r /dev/kvm && test -w /dev/kvm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
       - name: Install API28 system image and emulator
         run: |
           set -eu
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager 'system-images;android-28;default;x86_64' 'platforms;android-35' 'build-tools;35.0.0' 'emulator' 'platform-tools'
+          SDKMANAGER=$(command -v sdkmanager || find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -1)
+          test -x "$SDKMANAGER"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" 'system-images;android-28;default;x86_64' 'platforms;android-35' 'build-tools;35.0.0' 'emulator' 'platform-tools'
       - name: Check installed emulator acceleration
         run: |
           set -eu
