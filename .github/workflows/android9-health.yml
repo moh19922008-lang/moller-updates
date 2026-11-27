@@ -6,21 +6,28 @@ permissions:
   contents: read
 jobs:
   health:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 18
     steps:
-      - name: Require KVM hardware virtualization
-        run: |
-          set -eu
-          test -c /dev/kvm
-          sudo chmod a+rw /dev/kvm
-          test -r /dev/kvm && test -w /dev/kvm
-          "$ANDROID_HOME/emulator/emulator" -accel-check
-      - name: Prepare Android 9 reference device
+      - name: Require host virtualization CPU flags
+        run: grep -Eq '\b(vmx|svm)\b' /proc/cpuinfo
+      - name: Require device node /dev/kvm
+        run: test -c /dev/kvm
+      - name: Grant hardware virtualization access in disposable runner
+        run: sudo chmod a+rw /dev/kvm && test -r /dev/kvm && test -w /dev/kvm
+      - name: Install API28 system image and emulator
         run: |
           set -eu
           yes | sdkmanager --licenses > /dev/null || true
           sdkmanager 'system-images;android-28;default;x86_64' 'platforms;android-35' 'build-tools;35.0.0' 'emulator' 'platform-tools'
+      - name: Check installed emulator acceleration
+        run: |
+          set -eu
+          "$ANDROID_HOME/emulator/emulator" -accel-check | tee "$RUNNER_TEMP/accel.txt"
+          grep -qi 'KVM.*usable' "$RUNNER_TEMP/accel.txt"
+      - name: Boot API28 with required hardware virtualization
+        run: |
+          set -eu
           echo no | avdmanager create avd -f -n MollerHealth -k 'system-images;android-28;default;x86_64'
           printf '\nhw.cpu.ncore=4\nhw.ramSize=2048\nhw.lcd.width=1920\nhw.lcd.height=1080\nhw.lcd.density=240\n' >> "$HOME/.android/avd/MollerHealth.avd/config.ini"
           "$ANDROID_HOME/emulator/emulator" -avd MollerHealth -accel on -gpu swiftshader_indirect -no-window -no-snapshot -no-boot-anim -no-metrics > "$RUNNER_TEMP/emulator.log" 2>&1 &
