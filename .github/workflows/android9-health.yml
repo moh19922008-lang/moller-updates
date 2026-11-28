@@ -68,14 +68,14 @@ jobs:
             private MediaPlayer player;private boolean rendered;private final Handler h=new Handler(Looper.getMainLooper());
             private static final String MEDIA="https://upload.wikimedia.org/wikipedia/commons/transcoded/0/0a/Ali_Ayman_-_Because_of_Him_%282021%29.webm/Ali_Ayman_-_Because_of_Him_%282021%29.webm.1080p.vp9.webm";
             private static final String[] NAMES={"YouTubeAPI","YouTubeEmbed","OK","Mail","VK","Vimeo","Dailymotion","IA","Commons","OTA"};
-            private static final String[] URLS={"https://www.youtube.com/iframe_api","https://www.youtube-nocookie.com/embed/4D4uDDIFt_k","https://ok.ru/","https://my.mail.ru/","https://vk.com/","https://player.vimeo.com/","https://geo.dailymotion.com/","https://archive.org/","https://commons.wikimedia.org/","https://moh19922008-lang.github.io/moller-updates/releases/masha-trial/latest.json"};
+            private static final String[] URLS={"https://www.youtube.com/iframe_api","https://www.youtube-nocookie.com/embed/4D4uDDIFt_k","https://ok.ru/","https://my.mail.ru/","https://vk.com/","https://player.vimeo.com/","https://geo.dailymotion.com/player/xhysi.html?video=x84sh87","https://archive.org/","https://commons.wikimedia.org/","https://moh19922008-lang.github.io/moller-updates/releases/masha-trial/latest.json"};
             public void onCreate(Bundle saved){super.onCreate(saved);getWindow().addFlags(128);LinearLayout l=new LinearLayout(this);l.setOrientation(1);SurfaceView s=new SurfaceView(this);l.addView(s,new LinearLayout.LayoutParams(-1,0,3));WebView w=new WebView(this);l.addView(w,new LinearLayout.LayoutParams(-1,0,1));setContentView(l);
               Log.i("MollerHealth","webview_version="+WebView.getCurrentWebViewPackage().versionName+" accel="+w.isHardwareAccelerated());
               ExecutorService ex=Executors.newFixedThreadPool(4);for(int i=0;i<URLS.length;i++){final int k=i;ex.submit(()->{try{HttpURLConnection c=(HttpURLConnection)new URL(URLS[k]).openConnection();c.setConnectTimeout(10000);c.setReadTimeout(10000);int code=c.getResponseCode();Log.i("MollerHealth","NET "+NAMES[k]+"="+code);c.disconnect();}catch(Exception e){Log.e("MollerHealth","NET "+NAMES[k]+"="+e.getClass().getSimpleName());}});}ex.shutdown();
               w.getSettings().setJavaScriptEnabled(true);w.getSettings().setDomStorageEnabled(true);w.setWebViewClient(new WebViewClient(){public void onPageFinished(WebView v,String u){Log.i("MollerHealth","WEBVIEW_PAGE_FINISHED");}public void onReceivedError(WebView v,WebResourceRequest r,WebResourceError e){if(r.isForMainFrame())Log.w("MollerHealth","WEBVIEW_ERROR="+e.getErrorCode());}});w.loadUrl(URLS[1]);
               s.getHolder().addCallback(new SurfaceHolder.Callback(){public void surfaceCreated(SurfaceHolder holder){try{player=new MediaPlayer();player.setDisplay(holder);player.setDataSource(MEDIA);player.setOnErrorListener((p,a,b)->{Log.e("MollerHealth","MEDIA_ERROR="+a+":"+b);return true;});player.setOnInfoListener((p,a,b)->{if(a==MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START){rendered=true;Log.i("MollerHealth","MEDIA_FIRST_FRAME");}return false;});player.setOnPreparedListener(p->{int audio=0;for(MediaPlayer.TrackInfo t:p.getTrackInfo())if(t.getTrackType()==MediaPlayer.TrackInfo.MEDIA_TRACK_TYPE_AUDIO)audio++;Log.i("MollerHealth","MEDIA_PREPARED="+p.getVideoWidth()+"x"+p.getVideoHeight()+" audio_tracks="+audio);p.start();sample(0);});player.prepareAsync();}catch(Exception e){Log.e("MollerHealth","MEDIA_SETUP="+e.getClass().getSimpleName());}}public void surfaceChanged(SurfaceHolder h,int f,int x,int y){}public void surfaceDestroyed(SurfaceHolder h){if(player!=null){player.release();player=null;}}});
             }
-            private void sample(int n){h.postDelayed(()->{try{if(player==null)return;int p=player.getCurrentPosition();Log.i("MollerHealth","MEDIA_PROGRESS="+p+" rendered="+rendered);if(n<8)sample(n+1);}catch(Exception ignored){}},5000);}
+            private void sample(int n){h.postDelayed(()->{try{if(player==null)return;int p=player.getCurrentPosition();Log.i("MollerHealth","MEDIA_PROGRESS="+p+" rendered="+rendered);if(n<24)sample(n+1);}catch(Exception ignored){}},5000);}
           }
           JAVA
           B="$ANDROID_HOME/build-tools/35.0.0"; A="$ANDROID_HOME/platforms/android-35/android.jar"
@@ -92,13 +92,16 @@ jobs:
           set -eu
           adb logcat -c
           adb shell am start -n qa.moller.health/.ProbeActivity
-          for i in $(seq 1 30); do adb logcat -d -s MollerHealth:I > "$RUNNER_TEMP/health-result.txt"; grep -q 'MEDIA_PROGRESS=' "$RUNNER_TEMP/health-result.txt" && grep -q 'NET YouTubeAPI=' "$RUNNER_TEMP/health-result.txt" && [ "$(grep -c 'MEDIA_PROGRESS=' "$RUNNER_TEMP/health-result.txt")" -ge 5 ] && break; sleep 5; done
+          for i in $(seq 1 45); do adb logcat -d -s MollerHealth:I > "$RUNNER_TEMP/health-result.txt"; grep -q 'MEDIA_PROGRESS=' "$RUNNER_TEMP/health-result.txt" && grep -q 'NET YouTubeAPI=' "$RUNNER_TEMP/health-result.txt" && [ "$(grep -c 'MEDIA_PROGRESS=' "$RUNNER_TEMP/health-result.txt")" -ge 20 ] && break; sleep 5; done
           cat "$RUNNER_TEMP/health-result.txt"
           grep -q 'NET YouTubeAPI=200' "$RUNNER_TEMP/health-result.txt"
           grep -q 'NET YouTubeEmbed=200' "$RUNNER_TEMP/health-result.txt"
           grep -q 'MEDIA_FIRST_FRAME' "$RUNNER_TEMP/health-result.txt"
-          grep -Eq 'MEDIA_PREPARED=1920x1080 audio_tracks=[1-9]' "$RUNNER_TEMP/health-result.txt"
-          grep -Eq 'MEDIA_PROGRESS=[1-9][0-9]{4,} rendered=true' "$RUNNER_TEMP/health-result.txt"
+          grep -Eq 'MEDIA_PREPARED=1920x804 audio_tracks=[1-9]' "$RUNNER_TEMP/health-result.txt"
+          grep -Eq 'MEDIA_PROGRESS=(9[0-9]{4}|[1-9][0-9]{5,}) rendered=true' "$RUNNER_TEMP/health-result.txt"
+          ! grep -q 'MEDIA_ERROR=' "$RUNNER_TEMP/health-result.txt"
+          grep -q 'WEBVIEW_PAGE_FINISHED' "$RUNNER_TEMP/health-result.txt"
+          adb shell dumpsys media.codec | head -50 || true
           adb shell dumpsys meminfo qa.moller.health | head -30
       - name: Save health result only (no APK and no production changes)
         if: always()
